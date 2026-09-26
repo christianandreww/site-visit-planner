@@ -1,0 +1,1018 @@
+/* ─── base ──────────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  color: #0f172a;
+  background: #e8edf2;
+  -webkit-font-smoothing: antialiased;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+}
+input {
+  font: inherit;
+}
+
+.app {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+}
+.map {
+  position: absolute;
+  inset: 0;
+  background: #dde5ec;
+}
+
+/* Leaflet chrome tweaks */
+.leaflet-right .leaflet-control-zoom {
+  margin-top: calc(env(safe-area-inset-top, 0px) + 72px);
+}
+.leaflet-container .leaflet-control-attribution {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+/* ─── inputs & buttons ──────────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  border: 1.5px solid transparent;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: #0f172a;
+  outline: none;
+  min-width: 0;
+}
+.input::placeholder {
+  color: #94a3b8;
+}
+.input:focus {
+  border-color: #2563eb;
+  background: #fff;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: #1d4ed8;
+  color: #fff;
+}
+.btn-primary:disabled {
+  background: #93a8e8;
+  cursor: default;
+}
+.btn-ghost {
+  background: transparent;
+  color: #475569;
+}
+.btn-ghost:hover {
+  background: #f1f5f9;
+}
+.btn-danger-text {
+  background: transparent;
+  color: #dc2626;
+  padding-left: 0;
+}
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.btn-lg {
+  padding: 13px 22px;
+  font-size: 16px;
+  width: 100%;
+}
+
+/* ─── top bar (new-client flow) ─────────────────────────────────────────── */
+.topbar {
+  position: fixed;
+  z-index: 1100;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #fff;
+  border-radius: 14px;
+  padding: 8px;
+  box-shadow: 0 6px 24px rgba(2, 6, 23, 0.16);
+  max-width: 760px;
+  margin: 0 auto;
+}
+.input-name {
+  flex: 0 1 34%;
+}
+.topbar .addr {
+  flex: 1 1 66%;
+}
+
+.topbar-active {
+  padding: 8px 8px 8px 14px;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f97316;
+  flex: none;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.2);
+}
+.client-chip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.client-chip strong {
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.client-chip span {
+  font-size: 12.5px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* address autocomplete */
+.addr {
+  position: relative;
+  min-width: 0;
+  /* The suggestions overlay whatever follows the address field. Controls below
+     it use transforms (the selected colour swatch scales up), which promotes
+     them into the same paint layer as an unlayered absolute box — so without
+     an explicit z-index here they punch through the dropdown. */
+  z-index: 5;
+}
+.addr-drop {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 32px rgba(2, 6, 23, 0.22);
+  overflow: hidden;
+  max-height: 290px;
+  overflow-y: auto;
+}
+.addr-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.addr-row:hover {
+  background: #f8fafc;
+}
+.addr-main {
+  font-size: 14px;
+  font-weight: 600;
+}
+.addr-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+.addr-note {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #64748b;
+}
+.addr-err {
+  color: #dc2626;
+}
+
+/* ─── banners ───────────────────────────────────────────────────────────── */
+.banner {
+  position: fixed;
+  z-index: 1050;
+  top: calc(env(safe-area-inset-top, 0px) + 72px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(2, 6, 23, 0.15);
+  white-space: nowrap;
+  max-width: calc(100vw - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.banner-demo {
+  background: #fef3c7;
+  color: #92400e;
+}
+.banner-error {
+  background: #fee2e2;
+  color: #991b1b;
+  white-space: normal;
+  text-align: center;
+}
+.banner-muted {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* ─── map pins ──────────────────────────────────────────────────────────── */
+.pin-wrap {
+  background: transparent;
+  border: none;
+}
+.pin {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+  border: 2.5px solid #fff;
+  box-shadow: 0 3px 10px rgba(2, 6, 23, 0.35);
+  transition: transform 0.15s ease;
+}
+.pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  transform: translateX(-50%) rotate(45deg);
+  background: inherit;
+  border-radius: 2px;
+  z-index: -1;
+}
+.pin-visit {
+  background: #1d4ed8;
+}
+/* Running order: 1 is the next visit, so the map reads as a route without
+   opening a single card. Styled as an iOS app badge — a shape people already
+   read as "this one is first in the queue" without being told. Sage rather
+   than the usual alert red: same shape and meaning, calmer on a map that may
+   carry ten of them at once. */
+.pin-seq {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #5f7a52;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 1.5px 4px rgba(2, 6, 23, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+/* a D/M date needs more room inside the disc than a weekday abbreviation */
+.pin-long {
+  font-size: 9.5px;
+  letter-spacing: 0;
+}
+/* custom pins: rounded square + the name's initial, so kind reads by shape
+   and identity by colour, even before anything is tapped */
+.pin-place {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  font-size: 14px;
+  opacity: 0.95;
+}
+.pin-new {
+  background: #f97316;
+}
+.pin-new::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  border: 3px solid rgba(249, 115, 22, 0.55);
+  animation: pulse 1.7s ease-out infinite;
+}
+@keyframes pulse {
+  0% {
+    transform: scale(0.65);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.pin-selected {
+  transform: scale(1.16);
+  box-shadow: 0 5px 16px rgba(2, 6, 23, 0.5);
+}
+
+/* ─── floating action button ────────────────────────────────────────────── */
+.fab {
+  position: fixed;
+  z-index: 1050;
+  right: 14px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 30px);
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(29, 78, 216, 0.45);
+}
+.fab:active {
+  transform: scale(0.97);
+}
+
+.fab-small {
+  position: fixed;
+  z-index: 1050;
+  right: 14px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 152px);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fff;
+  color: #1d4ed8;
+  border: none;
+  font-size: 18px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.2);
+}
+.fab-small:active {
+  transform: scale(0.95);
+}
+
+.fab-search {
+  position: fixed;
+  z-index: 1050;
+  right: 14px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 94px);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fff;
+  color: #1d4ed8;
+  border: none;
+  font-size: 18px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.2);
+}
+.fab-search:active {
+  transform: scale(0.95);
+}
+
+/* map colour key — only rendered when 2+ pin types are in use */
+.legend {
+  position: fixed;
+  z-index: 1040;
+  left: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  max-width: 60vw;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  padding: 7px 11px;
+  box-shadow: 0 3px 12px rgba(2, 6, 23, 0.16);
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.signout {
+  position: fixed;
+  z-index: 1040;
+  left: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 30px);
+  background: rgba(255, 255, 255, 0.9);
+  color: #64748b;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(2, 6, 23, 0.14);
+}
+
+/* ─── bottom card (pin details) ─────────────────────────────────────────── */
+.card {
+  position: fixed;
+  z-index: 1150;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 18px 18px calc(env(safe-area-inset-bottom, 0px) + 18px);
+  box-shadow: 0 -10px 40px rgba(2, 6, 23, 0.28);
+  animation: slide-up 0.22s ease;
+  max-height: 78dvh;
+  overflow-y: auto;
+}
+@keyframes slide-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.card-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  color: #64748b;
+  font-size: 13px;
+}
+.card-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1d4ed8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-right: 34px;
+}
+.card-seq {
+  margin-left: auto;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+}
+.card-tag {
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.card-kicker-new {
+  color: #ea580c;
+}
+.card-name {
+  margin: 4px 0 2px;
+  font-size: 20px;
+}
+.card-addr {
+  color: #475569;
+  font-size: 14px;
+}
+.card-time {
+  margin-top: 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.card-dist {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card-drive {
+  font-weight: 700;
+  color: #c2410c;
+}
+.card-drive-muted {
+  font-weight: 500;
+  color: #94a3b8;
+}
+.card-transit {
+  margin-top: 2px;
+}
+.pt-legs {
+  list-style: none;
+  margin: 5px 0 0;
+  padding: 0 0 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: #64748b;
+}
+.pt-legs strong {
+  color: #0f172a;
+}
+.muted {
+  color: #94a3b8;
+}
+.card-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.card-prospect .card-actions {
+  justify-content: stretch;
+}
+.card-prospect .card-actions .btn {
+  flex: 1;
+}
+
+/* nearest-visits list on the prospect card */
+.near {
+  margin-top: 12px;
+}
+.near-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+/* Two travel times plus a distance leaves almost nothing for the name on a
+   phone — "Emmanuel Tan" became "Em…". The row wraps instead: the name keeps
+   a readable minimum and the figures drop to a line of their own when they
+   no longer fit beside it. */
+.near-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  row-gap: 3px;
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+.near-row:hover {
+  background: #f1f5f9;
+}
+/* read-only rows (inside the add/edit form): informational, not tappable */
+.near-row-static {
+  cursor: default;
+}
+.near-row-static:hover {
+  background: #f8fafc;
+}
+.near-when {
+  font-weight: 700;
+  color: #1d4ed8;
+  flex: none;
+}
+.near-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.near-name {
+  flex: 0 1 auto;
+  min-width: 96px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.near-km {
+  font-weight: 700;
+  color: #0f172a;
+  flex: none;
+}
+.near-metrics {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: none;
+  margin-left: auto;
+  line-height: 1.3;
+}
+.near-times {
+  display: flex;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}
+.near-dist {
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+.near-wait {
+  color: #94a3b8;
+  font-weight: 600;
+}
+.near-none {
+  margin-top: 12px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+/* ─── modal form ────────────────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  background: #fff;
+  width: 100%;
+  border-radius: 20px 20px 0 0;
+  padding: 20px 18px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  max-height: 88dvh;
+  overflow-y: auto;
+  animation: slide-up 0.22s ease;
+}
+.sheet h2 {
+  margin: 0 0 14px;
+  font-size: 19px;
+}
+.field {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 10px;
+}
+.field .input,
+.field .addr {
+  margin-top: 5px;
+}
+/* Date on its own line, Start and End paired beneath it. Three across looks
+   tidier in a mockup, but native date/time controls have a stubborn minimum
+   width: they either overflow the sheet or clip the AM/PM off the value. */
+.row3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.row3 > * {
+  min-width: 0;
+}
+.row3 > :first-child {
+  grid-column: 1 / -1;
+}
+/* pin-type chips and colour swatches */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 5px 0 8px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #334155;
+}
+.chip-on {
+  border-color: #1d4ed8;
+  background: #fff;
+  color: #0f172a;
+}
+.chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 8px 0 12px;
+}
+.swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12) inset;
+  padding: 0;
+}
+.swatch-on {
+  border-color: #0f172a;
+  transform: scale(1.08);
+}
+.swatch:focus-visible,
+.chip:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+.hint {
+  font-size: 12.5px;
+  color: #94a3b8;
+  margin: -4px 0 10px;
+}
+.hint-ok {
+  color: #16a34a;
+  font-weight: 600;
+}
+.hint-err {
+  color: #dc2626;
+  font-weight: 600;
+}
+.hint-warn {
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-weight: 600;
+  margin: 2px 0 10px;
+}
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* visit search panel */
+.sheet-search {
+  padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+.search-list {
+  margin-top: 10px;
+  max-height: 55dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.search-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.search-row:hover {
+  background: #f1f5f9;
+}
+.search-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.search-seq {
+  flex: none;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #5f7a52;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.search-heading {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #94a3b8;
+  margin: 10px 0 2px;
+}
+.search-when {
+  font-weight: 700;
+  color: #1d4ed8;
+  flex: none;
+  font-size: 13px;
+}
+.search-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.search-body strong {
+  font-size: 15px;
+}
+.search-body span {
+  font-size: 12.5px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-empty {
+  padding: 14px;
+  font-size: 14px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* ─── sign-in & splash ──────────────────────────────────────────────────── */
+.splash {
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+.signin {
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #eff6ff 0%, #e8edf2 60%, #fff7ed 100%);
+  padding: 20px;
+}
+.signin-card {
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 16px 48px rgba(2, 6, 23, 0.14);
+  padding: 34px 28px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+}
+.signin-card h1 {
+  font-size: 22px;
+  margin: 14px 0 6px;
+}
+.signin-card p {
+  color: #64748b;
+  font-size: 14.5px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+.signin-demo {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 13.5px;
+  color: #1d4ed8;
+}
+
+/* ─── larger screens ────────────────────────────────────────────────────── */
+@media (min-width: 720px) {
+  .topbar {
+    left: 14px;
+    right: auto;
+    width: 560px;
+  }
+  .card {
+    left: 14px;
+    right: auto;
+    bottom: 14px;
+    width: 400px;
+    border-radius: 18px;
+  }
+  .overlay {
+    align-items: center;
+  }
+  .sheet {
+    width: 440px;
+    border-radius: 18px;
+    padding-bottom: 20px;
+  }
+  .fab {
+    right: 18px;
+    bottom: 34px;
+  }
+  .fab-search {
+    right: 18px;
+    bottom: 98px;
+  }
+  .fab-small {
+    right: 18px;
+    bottom: 156px;
+  }
+  .signout {
+    left: 14px;
+    bottom: 34px;
+  }
+  .legend {
+    left: 14px;
+    bottom: 78px;
+    max-width: 320px;
+  }
+}
+
+/* ─── back through the trail of cards ───────────────────────────────────── */
+.card-back {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 999px;
+  height: 30px;
+  padding: 0 12px 0 9px;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+}
+/* the kicker row shares the top line, so it steps aside when Back is there */
+.card-back ~ .card-kicker {
+  padding-left: 74px;
+}
+
+/* A card opened from inside a form has to clear the form's own overlay. */
+.card-peek {
+  z-index: 1250;
+}
+
+/* ─── public transport detail ───────────────────────────────────────────── */
+.pt-sub {
+  font-size: 12.5px;
+  color: #64748b;
+  margin-top: 1px;
+}
+.pt-sub strong {
+  color: #0f172a;
+}
+.pt-approx {
+  color: #94a3b8;
+}
+.near-approx {
+  color: #94a3b8;
+  font-weight: 700;
+}
