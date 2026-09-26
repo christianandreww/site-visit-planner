@@ -20,9 +20,20 @@ const WALK_LOOSE = 2000;
 // stands in and the answer is flagged as typical rather than exact.
 const SCHEDULE_HORIZON_DAYS = 10;
 
-// Whether this instance may ask OneMap to plan backwards from an arrival
-// time. Probed once per cold start: if the parameter is rejected, stop asking.
+// OneMap's router can in principle plan backwards from an arrival time, and
+// the request is still sent in case it starts doing so. In practice (checked
+// against the live service, Sept 2026) it accepts `arriveBy=true` and quietly
+// plans a departure at that time instead — so arrivals are worked out here,
+// in arriveInTime() below, rather than trusted to OneMap.
+//
+// Probed once per cold start: if the parameter is ever rejected, stop sending.
 let arriveBySupported = true;
+
+// How much earlier than "deadline minus the trip" to look for a journey that
+// still arrives in time. Five minutes absorbs ordinary timetable wobble on
+// trains every few minutes; twenty covers buses that run a few times an hour,
+// where the last one that makes it can leave well before the obvious time.
+const LEAD_BUFFERS_MINS = [5, 20];
 
 // ── small date helpers (server-side, all pinned to Singapore) ──────────────
 
@@ -36,6 +47,16 @@ const dayNumber = (iso) => {
 };
 
 const isoFromDayNumber = (n) => new Date(n * 86400000).toISOString().slice(0, 10);
+
+/**
+ * A Singapore date and time moved by some minutes, rolling over midnight and
+ * month ends. Singapore has no daylight saving, so a fixed +8h is exact.
+ */
+export function shiftSG(dateISO, timeHM, deltaMins) {
+  const wall = new Date(epochSG(dateISO, timeHM) + deltaMins * 60_000 + 8 * 3_600_000);
+  const iso = wall.toISOString();
+  return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
+}
 
 /** 'HH:MM' in Singapore for an epoch-millisecond timestamp. */
 function hhmmSG(ms) {
@@ -83,14 +104,22 @@ const toMins = (value) => {
   return Number.isFinite(n) ? Math.max(0, Math.round(n / 60)) : 0;
 };
 
+/** Itineraries that really use a bus or train and say how long they take. */
+const realJourneys = (itineraries) =>
+  (itineraries || []).filter((it) => usesTransit(it) && Number.isFinite(Number(it.duration)));
+
 /** Fastest itinerary that involves transit, or null if none do. */
 function bestItinerary(itineraries) {
-  const real = (itineraries || []).filter(
-    (it) => usesTransit(it) && Number.isFinite(Number(it.duration))
-  );
+  const real = realJourneys(itineraries);
   if (!real.length) return null;
   return real.reduce((a, b) => (seconds(a.duration) <= seconds(b.duration) ? a : b));
 }
+
+/** Does this itinerary reach its destination by `deadline` (epoch ms)? */
+const arrivesBy = (it, deadline) => Number(it.endTime) > 0 && Number(it.endTime) <= deadline;
+
+// A minute's grace, so a plan landing at 2:00:30 still counts for a 2:00 visit.
+const GRACE_MS = 60_000;
 
 // "PASIR RIS MRT STATION" → "Pasir Ris MRT Station" (keeps common SG abbreviations)
 const KEEP_UPPER = new Set([
@@ -245,6 +274,46 @@ async function planTransit(start, end, dateISO, timeHM, wantArrive) {
 }
 
 /**
+ * Turn "a journey at about this time" into "the journey that gets you there
+ * in time" — which is what a rep needs for an appointment.
+ *
+ * OneMap plans forwards only, so ask it again with an earlier departure: the
+ * appointment time, less the trip it just found, less a margin. Of the
+ * journeys that come back, keep the one that leaves *latest* while still
+ * arriving by the deadline — that is the honest "leave by" time. If even a
+ * generous margin finds nothing that makes it, the forward plan is returned
+ * unchanged, and the interface shows no "leave by" at all rather than a guess.
+ *
+ * The deadline is measured on the date actually planned, which for a visit
+ * beyond the timetable horizon is the stand-in weekday, not the real one.
+ */
+async function arriveInTime(start, end, found, timeHM) {
+  const deadline = epochSG(found.date, timeHM) + GRACE_MS;
+  if (arrivesBy(found.best, deadline)) return found; // already in time
+
+  const tripMins = Math.ceil(seconds(found.best.duration) / 60);
+  for (const buffer of LEAD_BUFFERS_MINS) {
+    const leave = shiftSG(found.date, timeHM, -(tripMins + buffer));
+    let itineraries;
+    try {
+      itineraries = await itinerariesFor(start, end, leave.date, leave.time, found.maxWalk, false);
+    } catch {
+      return found; // a hiccup while refining should not cost the answer already in hand
+    }
+    const inTime = realJourneys(itineraries).filter((it) => arrivesBy(it, deadline));
+    if (inTime.length) {
+      const latest = inTime.reduce((a, b) => {
+        const later = Number(b.startTime) - Number(a.startTime);
+        if (later !== 0) return later > 0 ? b : a;
+        return seconds(b.duration) < seconds(a.duration) ? b : a; // same time: quicker
+      });
+      return { ...found, best: latest };
+    }
+  }
+  return found;
+}
+
+/**
  * GET /api/route?start=<lat,lng>&end=<lat,lng>            → driving: { km, mins }
  * GET /api/route?...&mode=pt&date=YYYY-MM-DD&time=HH:MM   → public transport:
  *       { mins, transfers, walkMins, waitMins, departAt, arriveAt,
@@ -280,16 +349,20 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'by must be "arrive" or "depart".' });
       }
 
-      const found = await planTransit(start, end, date, time, by === 'arrive');
+      let found = await planTransit(start, end, date, time, by === 'arrive');
       if (!found) {
         return res.status(502).json({ error: 'No public transport route found.' });
       }
+      if (by === 'arrive') found = await arriveInTime(start, end, found, time);
       const { best, approx } = found;
 
       // Timetables shift; do not hold a transit answer as long as a road one.
       res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate=86400');
 
-      const wanted = epochSG(date, time);
+      // Measured on the date actually planned: for a far-off visit that is the
+      // stand-in weekday, and comparing against the real (later) date would
+      // make every journey look early.
+      const deadline = epochSG(found.date, time) + GRACE_MS;
       const arriveAt = hhmmSG(best.endTime);
       const departAt = hhmmSG(best.startTime);
       return res.status(200).json({
@@ -301,10 +374,7 @@ export default async function handler(req, res) {
         arriveAt,
         // True when the plan really does land by the deadline asked for, so
         // the interface can say "leave by" rather than merely implying it.
-        arrivesInTime:
-          by === 'arrive' &&
-          Number(best.endTime) > 0 &&
-          Number(best.endTime) <= wanted + 60_000,
+        arrivesInTime: by === 'arrive' && arrivesBy(best, deadline),
         legs: compactLegs(best),
         ...(approx ? { approx: true, plannedFor: found.date } : {}),
       });
