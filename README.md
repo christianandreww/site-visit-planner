@@ -1,4 +1,4 @@
-# Site Visit Planner
+# Site Visit Planner #
 
 All your upcoming site visits as pins on a Singapore map, so that when a new
 client says yes to a site visit mid-call, you can see in seconds which existing
