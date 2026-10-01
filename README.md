@@ -221,7 +221,9 @@ Setup:
    invitations to my calendar**, choose **From everyone**. (On a company
    address, colleagues already count as known senders.)
 3. **Settings → the calendar → Integrate calendar → Secret address in iCal
-   format** — copy it. Treat it like a password.
+   format** — copy it. It's the last one, hidden behind dots; not the *Public
+   address in iCal format* above it, which only works on a public calendar.
+   Treat it like a password.
 4. In Vercel → **Settings → Environment Variables**, add:
 
    | Name | Value |
@@ -258,6 +260,11 @@ you edit files inside `api/`.
   OneMap env vars are missing or wrong on Vercel. Fix them and redeploy.
 - **Google sign-in fails with `auth/unauthorized-domain`** — add your Vercel
   domain under Firebase → Authentication → Settings → Authorized domains.
+- **The map says the planner calendar couldn't be read** — `PLANNER_ICAL_URL`
+  must be the calendar's *Secret* address in iCal format (it contains
+  `private-` and ends in `basic.ics`). If it already is, the address may have
+  been reset since: copy it again. Redeploy after changing it. Never make the
+  calendar public instead — that shows every visit to anyone.
 - **"Firestore blocked access…"** — the security rules from
   `firestore.rules` haven't been published (or were pasted into a different
   Firebase project). Paste and Publish them in the Firebase console.
