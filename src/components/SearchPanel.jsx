@@ -52,7 +52,7 @@ export default function SearchPanel({ visits, places = [], onPick, onPickPlace, 
                 <strong>{v.name}</strong>
                 <span>
                   {v.address}
-                  {v.postal ? ` · S${v.postal}` : ''}
+                  {v.postal && !String(v.address || '').includes(v.postal) ? ` · S${v.postal}` : ''}
                 </span>
               </span>
             </button>

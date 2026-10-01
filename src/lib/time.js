@@ -44,6 +44,7 @@ export function fmtTime(dateISO, timeHM) {
 
 /** '2:00 PM – 3:00 PM' */
 export function fmtRange(visit) {
+  if (visit.allDay) return 'All day'; // an all-day calendar event has no times to show
   return `${fmtTime(visit.date, visit.start)} – ${fmtTime(visit.date, visit.end)}`;
 }
 

@@ -44,6 +44,8 @@ export default function VisitForm({
   // form, but while a visit is being consulted on top of it, it should only
   // close that — abandoning half-typed details is the thing to avoid.
   onDismiss = null,
+  // The planner's own address, once calendar invites are switched on.
+  plannerEmail = '',
   onSave,
 }) {
   const [name, setName] = useState(prefill?.name || '');
@@ -139,6 +141,12 @@ export default function VisitForm({
     <div className="overlay" onMouseDown={onDismiss || onCancel}>
       <form className="sheet" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit}>
         <h2>{editing ? 'Edit site visit' : 'Add site visit'}</h2>
+        {plannerEmail && (
+          <p className="hint hint-invite">
+            Or skip this form: add <strong>{plannerEmail}</strong> as a guest on the calendar
+            event and the visit appears on the map by itself.
+          </p>
+        )}
 
         <label className="field">
           Client name

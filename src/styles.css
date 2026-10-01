@@ -1016,3 +1016,41 @@ input {
   color: #94a3b8;
   font-weight: 700;
 }
+
+/* ─── visits that arrive by calendar invitation ─────────────────────────── */
+/* A dashed rim says "this one lives in a calendar" without a second colour
+   competing with the blue every visit already uses. */
+.pin-cal {
+  border-style: dashed;
+}
+.card-tag-cal {
+  background: #475569;
+}
+.card-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #475569;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 9px 12px;
+}
+.hint-invite {
+  margin: -6px 0 14px;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+.hint-invite strong {
+  color: #1d4ed8;
+}
+.banner-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+/* notices that need a sentence rather than a few words */
+.banner-wrap {
+  white-space: normal;
+  text-align: center;
+  border-radius: 14px;
+  width: max-content;
+  max-width: min(92vw, 520px);
+}

@@ -83,10 +83,11 @@ export default function MapView({
       const sel = v.id === selectedId ? ' pin-selected' : '';
       const label = pinLabel(v.date);
       const long = label.length > 3 ? ' pin-long' : '';
+      const cal = v.fromCalendar ? ' pin-cal' : '';
       const icon = L.divIcon({
         className: 'pin-wrap',
         html:
-          `<div class="pin pin-visit${sel}${long}"><span>${label}</span>` +
+          `<div class="pin pin-visit${sel}${long}${cal}"><span>${label}</span>` +
           `<b class="pin-seq">${i + 1}</b></div>`,
         iconSize: [40, 48],
         iconAnchor: [20, 47],

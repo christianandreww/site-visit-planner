@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, getRedirectResult, signOut } from 'firebase/auth';
 import { auth, firebaseReady } from './firebase.js';
 import { useVisits } from './hooks/useVisits.js';
+import { useInvitedVisits } from './hooks/useInvitedVisits.js';
 import { usePlaces } from './hooks/usePlaces.js';
 import { sampleProspect } from './lib/demo.js';
 import {
@@ -22,6 +23,7 @@ import PlaceForm from './components/PlaceForm.jsx';
 import PlaceCard from './components/PlaceCard.jsx';
 import SearchPanel from './components/SearchPanel.jsx';
 import SignIn from './components/SignIn.jsx';
+import CalendarNotice from './components/CalendarNotice.jsx';
 
 const CLOSED_VISIT_FORM = { open: false, prefill: null, fromProspect: false, editId: null };
 const CLOSED_PLACE_FORM = { open: false, prefill: null, editId: null };
@@ -51,11 +53,23 @@ export default function App() {
 
   // ── data ────────────────────────────────────────────────────────────────
   const activeUser = demo ? null : user;
-  const { visits, loading, error, addVisit, updateVisit, removeVisit } = useVisits({
-    demo,
-    user: activeUser,
-    now,
-  });
+  const {
+    visits: savedVisits,
+    loading,
+    error,
+    addVisit,
+    updateVisit,
+    removeVisit,
+  } = useVisits({ demo, user: activeUser, now });
+
+  // Visits that arrive by inviting the planner's email to a calendar event.
+  // They join the saved ones everywhere — map, running order, nearby lists,
+  // clash warnings, search — but stay read-only, since the calendar owns them.
+  const invited = useInvitedVisits({ user: activeUser, now });
+  const visits = useMemo(
+    () => [...savedVisits, ...invited.visits].sort((a, b) => a.endTs - b.endTs),
+    [savedVisits, invited.visits]
+  );
   // Custom pins are permanent: no clock, no expiry.
   const { places, placesError, addPlace, updatePlace, removePlace } = usePlaces({
     demo,
@@ -198,6 +212,9 @@ export default function App() {
         <div className="banner banner-error">{error || placesError}</div>
       )}
       {!demo && loading && <div className="banner banner-muted">Loading your visits…</div>}
+      {!error && !placesError && !loading && (
+        <CalendarNotice error={invited.error} unplaced={invited.unplaced} />
+      )}
 
       <MapLegend places={places} />
 
@@ -302,6 +319,7 @@ export default function App() {
         <VisitForm
           prefill={visitForm.prefill}
           visits={visits}
+          plannerEmail={invited.enabled && !visitForm.editId ? invited.plannerEmail : ''}
           editing={Boolean(visitForm.editId)}
           excludeId={visitForm.editId}
           // Looking up a nearby visit mid-entry opens it over the form rather

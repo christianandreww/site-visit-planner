@@ -189,6 +189,44 @@ the visit's end time passes, but the record remains in Firestore; add
 
 ---
 
+## Calendar invites (optional)
+
+The planner can have its own email address, the way meeting notetakers do.
+A rep creates the site visit in their own calendar — client in the title,
+address with postal code in **Location** — and adds the planner's address as
+a guest. The visit appears on that rep's map by itself, and moves or
+disappears when the event is moved or cancelled.
+
+How it works: invitations land in the planner's own Google Calendar. The
+`/api/invites` function reads that calendar's private iCal feed, keeps the
+upcoming events organised by the signed-in rep (checked with their Firebase
+sign-in token), finds each Location with OneMap, and hands them to the map.
+Nothing is stored; calendar visits are read-only on the map.
+
+Setup:
+
+1. Create a Google account for the planner (a company address is best; a
+   free Gmail works for trying it out).
+2. In that account's Google Calendar → **Settings → Event settings → Add
+   invitations to my calendar**, choose **From everyone**. (On a company
+   address, colleagues already count as known senders.)
+3. **Settings → the calendar → Integrate calendar → Secret address in iCal
+   format** — copy it. Treat it like a password.
+4. In Vercel → **Settings → Environment Variables**, add:
+
+   | Name | Value |
+   | --- | --- |
+   | `PLANNER_ICAL_URL` | the secret iCal address from step 3 |
+   | `PLANNER_EMAIL` | the planner's email address (shown to reps as a reminder) |
+   | `PLANNER_EMAIL_ALIASES` | *optional* — only if a rep sends invites from a different address than they sign in with: `signin@gmail.com=work@company.com` (separate several reps with `;`) |
+
+5. Redeploy. Without `PLANNER_ICAL_URL` the feature stays switched off.
+
+Only events organised by a signed-in rep are ever shown, and only to that
+rep, so stray or spam invitations to the planner never reach a map.
+
+---
+
 ## Local development (optional)
 
 ```bash

@@ -107,11 +107,15 @@ export default function VisitPopup({
           <span className="card-seq">
             #{visits.indexOf(visit) + 1} of {visits.length}
           </span>
+          {visit.fromCalendar && <span className="card-tag card-tag-cal">From calendar</span>}
         </div>
         <h3 className="card-name">{visit.name}</h3>
         <div className="card-addr">
           {visit.address}
-          {visit.postal ? ` · S${visit.postal}` : ''}
+          {/* a calendar Location usually ends with the postal code already */}
+          {visit.postal && !String(visit.address || '').includes(visit.postal)
+            ? ` · S${visit.postal}`
+            : ''}
         </div>
         <div className="card-time">🕑 {fmtRange(visit)}</div>
 
@@ -145,7 +149,13 @@ export default function VisitPopup({
 
         {/* While this card is only being consulted from inside the add form,
             editing or removing would throw away what is being typed. */}
-        {!readOnly && (
+        {visit.fromCalendar && (
+          <p className="card-note">
+            This visit comes from your calendar. To change or cancel it, edit the event
+            there and the map will follow.
+          </p>
+        )}
+        {!readOnly && !visit.fromCalendar && (
           <div className="card-actions">
             <button
               className="btn btn-danger-text btn-sm"
