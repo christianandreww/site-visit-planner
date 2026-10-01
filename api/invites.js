@@ -48,6 +48,54 @@ export function parseAliases(raw) {
 }
 
 /**
+ * The planner calendar's address from PLANNER_ICAL_URL, forgiving the usual
+ * paste slips: surrounding quotes or spaces, and webcal:// (how calendar apps
+ * hand out the same https address). Returns { url } or { error }.
+ *
+ * The address is a secret, so no error here or below ever repeats it.
+ */
+export function feedAddress(raw) {
+  const text = String(raw || '')
+    .replace(/^["'<\s]+|["'>\s]+$/g, '')
+    .replace(/^webcals?:\/\//i, 'https://');
+  let url = null;
+  try {
+    url = new URL(text);
+  } catch {
+    // reported below
+  }
+  if (!url || !/^https?:$/.test(url.protocol)) {
+    return {
+      error:
+        "PLANNER_ICAL_URL isn't a web address. Paste the planner calendar's " +
+        'Secret address in iCal format, which starts with https://',
+    };
+  }
+  // Google lists the calendar's public address just above the secret one. It
+  // only works once the calendar is made public, which would show every
+  // client's name and address to anyone, so it is never used.
+  if (url.hostname === 'calendar.google.com' && /\/public\//i.test(url.pathname)) {
+    return {
+      error:
+        "PLANNER_ICAL_URL is the calendar's public address. Use its Secret " +
+        'address in iCal format instead, and keep the calendar private.',
+    };
+  }
+  return { url: url.href };
+}
+
+/** What to say when the calendar answers with an error, without repeating its address. */
+function feedStatusProblem(status) {
+  if (status === 404) {
+    return (
+      "The planner calendar's address wasn't found (HTTP 404). Copy its Secret " +
+      'address in iCal format into PLANNER_ICAL_URL again: it changes whenever it is reset.'
+    );
+  }
+  return `Couldn't read the planner calendar (HTTP ${status}). Check PLANNER_ICAL_URL.`;
+}
+
+/**
  * The client's name from an event title: "Site visit – Mr Tan, 550123" → "Mr Tan".
  * Any address written into the title is taken out (see splitTitle).
  */
@@ -125,17 +173,33 @@ export function makeInvitesHandler({ verify = verifyFirebaseToken, clock = () =>
     const aliases = parseAliases(process.env.PLANNER_EMAIL_ALIASES).get(who.email) || [];
     const mine = new Set([who.email, ...aliases]);
 
+    const address = feedAddress(feedUrl);
+    if (address.error) return res.status(500).json({ error: address.error });
+
     let feed;
     try {
-      const upstream = await fetch(feedUrl, { signal: AbortSignal.timeout(10_000) });
+      const upstream = await fetch(address.url, { signal: AbortSignal.timeout(10_000) });
       if (!upstream.ok) {
-        return res.status(502).json({
-          error: `Couldn't read the planner calendar (HTTP ${upstream.status}). Check PLANNER_ICAL_URL.`,
-        });
+        return res.status(502).json({ error: feedStatusProblem(upstream.status) });
       }
       feed = await upstream.text();
     } catch (err) {
-      return res.status(502).json({ error: `Couldn't reach the planner calendar: ${err.message}` });
+      // Not err.message: for some failures it quotes the address itself.
+      const slow = err && err.name === 'TimeoutError';
+      return res.status(502).json({
+        error: slow
+          ? 'The planner calendar took too long to answer. The map will try again shortly.'
+          : "Couldn't reach the planner calendar. Check PLANNER_ICAL_URL.",
+      });
+    }
+    // A web page instead of a calendar: usually the "Public URL to this
+    // calendar" link, copied from the same Google settings page.
+    if (!feed.includes('BEGIN:VCALENDAR')) {
+      return res.status(502).json({
+        error:
+          "PLANNER_ICAL_URL doesn't lead to a calendar feed. Use the planner calendar's " +
+          'Secret address in iCal format, which ends in basic.ics',
+      });
     }
 
     const now = clock();

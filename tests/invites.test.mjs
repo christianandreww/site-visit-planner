@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeInvitesHandler, parseAliases, clientName } from '../api/invites.js';
+import { makeInvitesHandler, parseAliases, clientName, feedAddress } from '../api/invites.js';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -66,12 +66,13 @@ const EVENTS = [
 ];
 
 /** Answers every outside call the endpoint makes: the feed, OneMap login, OneMap search. */
-function mockFetch({ feedText = feed(EVENTS), feedStatus = 200, searchFails = false } = {}) {
+function mockFetch({ feedText = feed(EVENTS), feedStatus = 200, searchFails = false, feedError = null } = {}) {
   const seen = [];
   globalThis.fetch = async (url) => {
     const u = String(url);
     seen.push(u);
     if (u === FEED_URL) {
+      if (feedError) throw feedError;
       return { ok: feedStatus === 200, status: feedStatus, text: async () => feedText };
     }
     if (u.includes('getToken')) {
@@ -230,11 +231,85 @@ test('every answer is kept out of shared caches', async () => {
   assert.equal((await call({ auth: '' })).headers['Cache-Control'], 'private, no-store');
 });
 
-test('a wrong calendar link says what to fix', async () => {
+// ── a calendar address that doesn't work ──────────────────────────────────
+
+test("an address Google doesn't recognise says what to fix", async () => {
   mockFetch({ feedStatus: 404 });
   const res = await call();
   assert.equal(res.statusCode, 502);
+  assert.match(res.body.error, /HTTP 404/);
+  assert.match(res.body.error, /Secret address in iCal format/);
   assert.match(res.body.error, /PLANNER_ICAL_URL/);
+});
+
+test("the calendar's public address is turned away without being fetched", async () => {
+  const seen = mockFetch();
+  const res = await call({
+    env: { PLANNER_ICAL_URL: 'https://calendar.google.com/calendar/ical/planner%40example/public/basic.ics' },
+  });
+  assert.equal(res.statusCode, 500);
+  assert.match(res.body.error, /public address/);
+  assert.match(res.body.error, /Secret address in iCal format/);
+  assert.equal(seen.length, 0, 'nothing is fetched');
+});
+
+test('a web page instead of a calendar says which address to use', async () => {
+  // e.g. the "Public URL to this calendar" link from the same settings page
+  mockFetch({ feedText: '<!doctype html><html><head><title>Google Calendar</title></head></html>' });
+  const res = await call();
+  assert.equal(res.statusCode, 502);
+  assert.match(res.body.error, /Secret address in iCal format/);
+  assert.match(res.body.error, /basic\.ics/);
+});
+
+test('an address pasted with quotes or as webcal:// still works', async () => {
+  for (const pasted of [`"${FEED_URL}"`, ` '${FEED_URL}' `, FEED_URL.replace('https://', 'webcal://')]) {
+    mockFetch();
+    const res = await call({ env: { PLANNER_ICAL_URL: pasted } });
+    assert.equal(res.statusCode, 200, pasted);
+    assert.equal(res.body.visits.length, 1, pasted);
+  }
+});
+
+test('the secret calendar address never appears in an error', async () => {
+  mockFetch();
+  const unparseable = await call({
+    env: { PLANNER_ICAL_URL: 'calendar.google.com/calendar/ical/planner%40example/private-abc/basic.ics' },
+  });
+  assert.equal(unparseable.statusCode, 500);
+  assert.match(unparseable.body.error, /starts with https:\/\//);
+
+  // fetch's own message for some failures quotes the address it was given
+  mockFetch({ feedError: new TypeError(`Failed to parse URL from ${FEED_URL}`) });
+  const failed = await call();
+  assert.equal(failed.statusCode, 502);
+  assert.match(failed.body.error, /Couldn't reach the planner calendar/);
+
+  for (const res of [unparseable, failed]) {
+    const body = JSON.stringify(res.body);
+    assert.ok(!body.includes('private-abc') && !body.includes('planner%40example'), body);
+  }
+});
+
+test('a slow calendar is reported as slow', async () => {
+  mockFetch({ feedError: new DOMException('The operation was aborted due to timeout', 'TimeoutError') });
+  const res = await call();
+  assert.equal(res.statusCode, 502);
+  assert.match(res.body.error, /took too long/);
+});
+
+test('calendar addresses are cleaned up the way they tend to be pasted', () => {
+  assert.equal(feedAddress(`  "${FEED_URL}"\n`).url, FEED_URL);
+  assert.equal(feedAddress(`<${FEED_URL}>`).url, FEED_URL);
+  assert.equal(feedAddress(FEED_URL.replace('https', 'webcal')).url, FEED_URL);
+  assert.ok(feedAddress('').error);
+  assert.ok(feedAddress('ftp://files.example/cal.ics').error);
+  assert.match(
+    feedAddress('https://calendar.google.com/calendar/ical/a%40b.example/public/basic.ics').error,
+    /public address/
+  );
+  // Other calendar services may use any path they like.
+  assert.equal(feedAddress('https://cal.example.com/public/team.ics').url, 'https://cal.example.com/public/team.ics');
 });
 
 test('OneMap being down does not lose the visit', async () => {
