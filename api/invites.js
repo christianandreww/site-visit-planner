@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 import { parseIcs, sgDateTime } from './_lib/ics.js';
 import { verifyFirebaseToken } from './_lib/firebaseAuth.js';
-import { geocodeLocation } from './_lib/geocode.js';
+import { geocodeLocation, geocodeTitle } from './_lib/geocode.js';
+import { findPostal, splitTitle } from './_lib/address.js';
 
 /**
  * GET /api/invites  (Authorization: Bearer <Firebase ID token>)
@@ -46,11 +47,12 @@ export function parseAliases(raw) {
   return map;
 }
 
-/** "Site visit – Mr Tan" → "Mr Tan"; anything else is kept as written. */
+/**
+ * The client's name from an event title: "Site visit – Mr Tan, 550123" → "Mr Tan".
+ * Any address written into the title is taken out (see splitTitle).
+ */
 export function clientName(summary) {
-  const text = String(summary || '').trim();
-  const rest = text.replace(/^site\s*visit\s*[-–—:|]?\s*/i, '').trim();
-  return rest || text || 'Site visit';
+  return splitTitle(summary).name;
 }
 
 const stableId = (e) =>
@@ -145,22 +147,37 @@ export function makeInvitesHandler({ verify = verifyFirebaseToken, clock = () =>
       .sort((a, b) => a.e.start.epochMs - b.e.start.epochMs)
       .slice(0, MAX_EVENTS);
 
+    // Where the address can come from: the event's Location, or — for reps
+    // who write "Site visit – Mr Tan, 550123" and leave Location empty — the
+    // title. Location wins when both are there; the title is the fallback
+    // when Location is empty or can't be found.
     const placed = await mapLimit(events, GEOCODE_PARALLEL, async ({ e, t }) => {
-      const base = { id: stableId(e), name: clientName(e.summary), ...t, fromCalendar: true };
+      const title = splitTitle(e.summary);
+      const base = { id: stableId(e), name: title.name, ...t, fromCalendar: true };
       const location = String(e.location || '').trim();
-      if (!location) return { unplaced: { ...base, location: '', reason: 'no-location' } };
+      const written = location || title.address;
+      if (!written) return { unplaced: { ...base, location: '', reason: 'no-location' } };
+
       let hit = null;
+      let used = '';
       try {
-        hit = await geocodeLocation(location);
+        if (location) {
+          hit = await geocodeLocation(location);
+          if (hit) used = location;
+        }
+        if (!hit && title.address) {
+          hit = await geocodeTitle(title);
+          if (hit) used = title.address;
+        }
       } catch {
-        return { unplaced: { ...base, location, reason: 'lookup-failed' } };
+        return { unplaced: { ...base, location: written, reason: 'lookup-failed' } };
       }
-      if (!hit) return { unplaced: { ...base, location, reason: 'not-found' } };
+      if (!hit) return { unplaced: { ...base, location: written, reason: 'not-found' } };
       return {
         visit: {
           ...base,
-          address: location.slice(0, 160),
-          postal: /\b(\d{6})\b/.exec(location)?.[1] || hit.postal,
+          address: used.slice(0, 160),
+          postal: findPostal(used)?.code || hit.postal,
           lat: hit.lat,
           lng: hit.lng,
         },

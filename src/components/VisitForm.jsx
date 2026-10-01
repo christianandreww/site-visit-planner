@@ -144,7 +144,8 @@ export default function VisitForm({
         {plannerEmail && (
           <p className="hint hint-invite">
             Or skip this form: add <strong>{plannerEmail}</strong> as a guest on the calendar
-            event and the visit appears on the map by itself.
+            event, with the postal code in its title or Location, and the visit appears on the
+            map by itself.
           </p>
         )}
 

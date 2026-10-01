@@ -22,7 +22,7 @@ export default function CalendarNotice({ error = '', unplaced = [] }) {
   const onlyLookupTrouble = unplaced.every((u) => u.reason === 'lookup-failed');
   const fix = onlyLookupTrouble
     ? 'The address lookup will try again shortly.'
-    : "Put the address, with its postal code, in the event's Location.";
+    : "Add the postal code to the event's title or Location.";
 
   return (
     <div className="banner banner-warn banner-wrap" role="status">

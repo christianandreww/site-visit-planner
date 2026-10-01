@@ -84,14 +84,28 @@ function mockFetch({ feedText = feed(EVENTS), feedStatus = 200, searchFails = fa
     if (u.includes('elastic/search')) {
       if (searchFails) return { ok: false, status: 503, json: async () => ({}) };
       const q = decodeURIComponent(/searchVal=([^&]+)/.exec(u)[1]);
-      const known = { 550123: { lat: '1.3601', lng: '103.8690' }, 550124: { lat: '1.3602', lng: '103.8691' } };
+      // What OneMap knows. "99 Imaginary Road" stands for a search OneMap
+      // answers with a *different* building — the case that must not be trusted.
+      const known = {
+        550123: { blk: '123', road: 'SERANGOON AVENUE 3', lat: '1.3601', lng: '103.8690' },
+        550124: { blk: '124', road: 'SERANGOON AVENUE 3', lat: '1.3602', lng: '103.8691' },
+        '21 Lower Kent Ridge Road': { blk: '21', road: 'LOWER KENT RIDGE ROAD', postal: '119077', lat: '1.2966', lng: '103.7764' },
+        '99 Imaginary Road': { blk: '12', road: 'IMAGINARY ROAD', postal: '123456', lat: '1.3000', lng: '103.8000' },
+      };
       const hit = known[q];
+      const postal = hit && (hit.postal || q);
       return {
         ok: true,
         status: 200,
         json: async () => ({
           results: hit
-            ? [{ ADDRESS: `${q} SERANGOON AVE 3 SINGAPORE ${q}`, POSTAL: q, LATITUDE: hit.lat, LONGITUDE: hit.lng }]
+            ? [{
+                BLK_NO: hit.blk,
+                ADDRESS: `${hit.blk} ${hit.road} SINGAPORE ${postal}`,
+                POSTAL: postal,
+                LATITUDE: hit.lat,
+                LONGITUDE: hit.lng,
+              }]
             : [],
         }),
       };
@@ -250,4 +264,56 @@ test('client names come from the event title', () => {
   assert.equal(clientName('Mr Tan roof check'), 'Mr Tan roof check', 'other titles are kept as written');
   assert.equal(clientName('Site visit'), 'Site visit');
   assert.equal(clientName(''), 'Site visit');
+});
+
+// ── addresses written into the title ──────────────────────────────────────
+
+/** One event for Jason on Fri 2 Oct, 2–3pm, with the given title and Location. */
+const one = (summary, location) =>
+  feed([{ uid: `t-${summary}`, start: '20261002T060000Z', end: '20261002T070000Z', organizer: JASON, summary, location }]);
+
+test('the title stands in when Location is empty', async () => {
+  mockFetch({ feedText: one('Site visit – Mdm Wong, 550124') });
+  const res = await call();
+  assert.equal(res.body.visits.length, 1);
+  const [v] = res.body.visits;
+  assert.equal(v.name, 'Mdm Wong', 'the address is taken out of the name');
+  assert.equal(v.address, '550124');
+  assert.equal(v.postal, '550124');
+  assert.deepEqual([v.lat, v.lng], [1.3602, 103.8691]);
+});
+
+test("the title is also the fallback when Location can't be found", async () => {
+  mockFetch({ feedText: one('Mr Ng S550124', 'Her place, TBC') });
+  const res = await call();
+  assert.equal(res.body.visits.length, 1);
+  assert.equal(res.body.visits[0].name, 'Mr Ng');
+  assert.equal(res.body.visits[0].address, 'S550124');
+  assert.equal(res.body.unplaced.length, 0);
+});
+
+test('Location wins when both have an address', async () => {
+  mockFetch({ feedText: one('Mr Teo 550124', 'Singapore 550123') });
+  const [v] = (await call()).body.visits;
+  assert.equal(v.address, 'Singapore 550123');
+  assert.deepEqual([v.lat, v.lng], [1.3601, 103.869], 'placed at the Location, not the title');
+  assert.equal(v.name, 'Mr Teo', 'and the name still leaves the address out');
+});
+
+test('a street address in the title is used once OneMap confirms the block', async () => {
+  const seen = mockFetch({ feedText: one('Site visit – Ms Lim, 21 Lower Kent Ridge Rd') });
+  const res = await call();
+  assert.equal(res.body.visits.length, 1);
+  assert.equal(res.body.visits[0].name, 'Ms Lim');
+  assert.equal(res.body.visits[0].postal, '119077', 'postal code taken from OneMap');
+  assert.ok(seen.some((u) => u.includes(encodeURIComponent('21 Lower Kent Ridge Road'))), '"Rd" spelled out');
+});
+
+test('a street OneMap places at a different block is not trusted', async () => {
+  mockFetch({ feedText: one('Mr Chua 99 Imaginary Rd') });
+  const res = await call();
+  assert.equal(res.body.visits.length, 0, 'no pin rather than a wrong one');
+  assert.deepEqual(res.body.unplaced.map((u) => [u.name, u.reason, u.location]), [
+    ['Mr Chua', 'not-found', '99 Imaginary Rd'],
+  ]);
 });

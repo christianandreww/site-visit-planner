@@ -192,15 +192,25 @@ the visit's end time passes, but the record remains in Firestore; add
 ## Calendar invites (optional)
 
 The planner can have its own email address, the way meeting notetakers do.
-A rep creates the site visit in their own calendar — client in the title,
-address with postal code in **Location** — and adds the planner's address as
-a guest. The visit appears on that rep's map by itself, and moves or
-disappears when the event is moved or cancelled.
+A rep creates the site visit in their own calendar and adds the planner's
+address as a guest. The visit appears on that rep's map by itself, and moves
+or disappears when the event is moved or cancelled.
+
+The address can go in either of two places:
+
+- **Location** — e.g. `Blk 123 Serangoon Ave 3, #05-12, Singapore 550123`.
+- **The title**, when Location is left empty or can't be found — e.g.
+  `Site visit – Mr Tan, 550123` or `Mr Tan at 1 Sireh Place`. The address is
+  taken out of the title, so the map still shows the client as "Mr Tan".
+
+A postal code is the surest way to get the right pin. A street address
+without one is only used when OneMap finds that exact block number; anything
+the map can't place is listed at the top of the map instead of guessed.
 
 How it works: invitations land in the planner's own Google Calendar. The
 `/api/invites` function reads that calendar's private iCal feed, keeps the
 upcoming events organised by the signed-in rep (checked with their Firebase
-sign-in token), finds each Location with OneMap, and hands them to the map.
+sign-in token), finds each address with OneMap, and hands them to the map.
 Nothing is stored; calendar visits are read-only on the map.
 
 Setup:
