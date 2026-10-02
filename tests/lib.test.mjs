@@ -11,7 +11,10 @@ import {
   weekdayShort,
   daysUntil,
   pinLabel,
+  urgencyTier,
+  URGENCY,
 } from '../src/lib/time.js';
+import { readFileSync } from 'node:fs';
 import { haversineKm, fmtKm } from '../src/lib/geo.js';
 import { sampleVisits, sampleProspect } from '../src/lib/demo.js';
 import { samplePlaces } from '../src/lib/demo.js';
@@ -81,7 +84,7 @@ test('demo data is always upcoming and complete', () => {
     for (const k of ['id', 'name', 'address', 'lat', 'lng', 'date', 'start', 'end']) {
       assert.ok(v[k], `${v.name} missing ${k}`);
     }
-    // visits are uniformly blue now — colour belongs to custom pins
+    // a visit's shade of blue comes from its date; colour belongs to custom pins
     assert.equal(v.catColor, undefined, 'visits carry no colour of their own');
   }
   const p = sampleProspect();
@@ -174,6 +177,74 @@ test('a far-off visit flips to its weekday as the date approaches', () => {
   const visit = '2026-09-03';
   assert.equal(pinLabel(visit, '2026-08-24'), '3/9', 'ten days out: a date');
   assert.equal(pinLabel(visit, '2026-08-28'), 'Thu', 'six days out: a weekday');
+});
+
+// ── how soon: the three shades of visit pin ───────────────────────────────
+
+/** The ISO date `n` days after `iso`. */
+const plusDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+
+test('a pin is darkest within the week, the usual blue the week after, lightest from two weeks out', () => {
+  const today = '2026-08-24'; // a Monday
+  assert.equal(urgencyTier('2026-08-24', today), 'urgent', 'today');
+  assert.equal(urgencyTier('2026-08-30', today), 'urgent', 'day 6');
+  assert.equal(urgencyTier('2026-08-31', today), 'soon', 'day 7: a week away');
+  assert.equal(urgencyTier('2026-09-06', today), 'soon', 'day 13');
+  assert.equal(urgencyTier('2026-09-07', today), 'later', 'day 14: two weeks away');
+  assert.equal(urgencyTier('2026-12-25', today), 'later', 'months away');
+  assert.equal(urgencyTier('2026-08-23', today), 'urgent', 'began yesterday and still running');
+});
+
+test('the darkest shade covers exactly the days a pin names its weekday', () => {
+  const today = '2026-08-24';
+  for (let n = -1; n < 30; n += 1) {
+    const date = plusDays(today, n);
+    const namesWeekday = /^[A-Z][a-z]{2}$/.test(pinLabel(date, today));
+    assert.equal(urgencyTier(date, today) === 'urgent', namesWeekday || n < 0, date);
+  }
+});
+
+test('a visit moves up a shade as its date approaches', () => {
+  const visit = '2026-09-10';
+  assert.equal(urgencyTier(visit, '2026-08-24'), 'later', '17 days out');
+  assert.equal(urgencyTier(visit, '2026-08-31'), 'soon', '10 days out');
+  assert.equal(urgencyTier(visit, '2026-09-05'), 'urgent', '5 days out');
+});
+
+test('the demo shows all three shades of visit pin', () => {
+  const shades = new Set(sampleVisits().map((v) => urgencyTier(v.date)));
+  assert.deepEqual([...shades].sort(), ['later', 'soon', 'urgent']);
+});
+
+test('the shades step from dark to light, the lightest still a shade darker than the sea', () => {
+  const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+  const token = (name) => new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(css)[1];
+  // WCAG relative luminance and contrast ratio
+  const lum = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+
+  const [urgent, soon, later] = ['visit-urgent', 'visit-soon', 'visit-later'].map(token);
+  assert.ok(lum(urgent) < lum(soon) && lum(soon) < lum(later), 'dark, then the usual blue, then the lightest');
+  const SEA = '#6ca7e3'; // OneMap's sea: the lightest sample from a screenshot of the live map
+  assert.ok(lum(later) < lum(SEA) && contrast(SEA, later) >= 1.15, 'a visible shade darker than the sea');
+  assert.ok(contrast(later, token('visit-later-ink')) >= 4.5, "the lightest pin's date stays readable");
+  for (const dark of [urgent, soon]) assert.ok(contrast(dark, '#ffffff') >= 4.5, `white text on ${dark}`);
+});
+
+test('every shade has a pin colour and a swatch in the map key', () => {
+  const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+  assert.deepEqual(URGENCY.map((t) => t.key), ['urgent', 'soon', 'later']);
+  for (const t of URGENCY) {
+    assert.match(css, new RegExp(`\\.pin-${t.key}\\b[^{]*\\{[^}]*background`), `.pin-${t.key}`);
+    assert.match(css, new RegExp(`\\.legend-${t.key}\\b[^{]*\\{[^}]*background`), `.legend-${t.key}`);
+    assert.ok(t.label.length > 0 && t.label.length <= 10, `"${t.label}" is short enough for the key`);
+  }
 });
 
 // ── card trail (Back) ─────────────────────────────────────────────────────

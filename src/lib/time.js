@@ -95,6 +95,24 @@ export function pinLabel(dateISO, today = todayISO()) {
   return `${d}/${m}`;
 }
 
+/**
+ * How soon a visit is, in three steps that set its pin's shade of blue:
+ * darkest within the week — the same 7 days in which a pin names its
+ * weekday — the usual blue the week after, and lightest from two weeks out.
+ * Labels are what the map's colour key says.
+ */
+export const URGENCY = [
+  { key: 'urgent', label: '< 1 week', lastDay: 6 },
+  { key: 'soon', label: '1–2 weeks', lastDay: 13 },
+  { key: 'later', label: '2+ weeks', lastDay: Infinity },
+];
+
+/** 'urgent', 'soon' or 'later' for a visit on this date (see URGENCY). */
+export function urgencyTier(dateISO, today = todayISO()) {
+  const days = daysUntil(dateISO, today);
+  return URGENCY.find((t) => days <= t.lastDay).key;
+}
+
 /** 'Tue' — short weekday label shown inside map pins. */
 export function weekdayShort(dateISO) {
   return atSG(dateISO, '00:00').toLocaleDateString('en-SG', {

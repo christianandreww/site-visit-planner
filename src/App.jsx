@@ -216,7 +216,7 @@ export default function App() {
         <CalendarNotice error={invited.error} unplaced={invited.unplaced} />
       )}
 
-      <MapLegend places={places} />
+      <MapLegend places={places} hasVisits={visits.length > 0} />
 
       <button
         className="fab"

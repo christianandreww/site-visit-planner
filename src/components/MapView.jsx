@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { pinLabel } from '../lib/time.js';
+import { pinLabel, todayISO, urgencyTier } from '../lib/time.js';
 import { colorHex, placeColor, placeInitial } from '../lib/places.js';
 
 const SG_CENTER = [1.3521, 103.8198];
+
+// Where two pins overlap, the sooner visit stays on top.
+const TIER_Z = { urgent: 200, soon: 100, later: 0 };
 
 export default function MapView({
   visits,
@@ -79,20 +82,22 @@ export default function MapView({
     }
 
     // visits arrive sorted by end time, so the index IS the running order
+    const today = todayISO();
     visits.forEach((v, i) => {
       const sel = v.id === selectedId ? ' pin-selected' : '';
-      const label = pinLabel(v.date);
+      const label = pinLabel(v.date, today);
       const long = label.length > 3 ? ' pin-long' : '';
       const cal = v.fromCalendar ? ' pin-cal' : '';
+      const tier = urgencyTier(v.date, today);
       const icon = L.divIcon({
         className: 'pin-wrap',
         html:
-          `<div class="pin pin-visit${sel}${long}${cal}"><span>${label}</span>` +
+          `<div class="pin pin-visit pin-${tier}${sel}${long}${cal}"><span>${label}</span>` +
           `<b class="pin-seq">${i + 1}</b></div>`,
         iconSize: [40, 48],
         iconAnchor: [20, 47],
       });
-      L.marker([v.lat, v.lng], { icon, zIndexOffset: sel ? 900 : 0 })
+      L.marker([v.lat, v.lng], { icon, zIndexOffset: sel ? 900 : TIER_Z[tier] })
         .on('click', () => onSelectRef.current(v.id))
         .addTo(layer);
     });

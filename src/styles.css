@@ -277,8 +277,29 @@ input {
   border-radius: 2px;
   z-index: -1;
 }
-.pin-visit {
-  background: #1d4ed8;
+/* How soon a visit is sets its shade of blue (urgencyTier in lib/time.js):
+   darkest within the week, the usual blue the week after, and lightest from
+   two weeks out. The steps are in lightness, so they read in sunlight and for
+   colour-blind eyes, and the soonest visits are the boldest on the map.
+   The lightest is one shade darker than OneMap's sea (about #6ca7e3), so a
+   far-off visit by the water still stands out from it. */
+:root {
+  --visit-urgent: #1b2f6e;
+  --visit-soon: #2563eb;
+  --visit-later: #5a97d2;
+  --visit-later-ink: #0f172a;
+}
+.pin-visit,
+.pin-soon {
+  background: var(--visit-soon);
+}
+.pin-urgent {
+  background: var(--visit-urgent);
+}
+.pin-later {
+  background: var(--visit-later);
+  /* white text is too faint on the lightest blue */
+  color: var(--visit-later-ink);
 }
 /* Running order: 1 is the next visit, so the map reads as a route without
    opening a single card. Styled as an iOS app badge — a shape people already
@@ -403,16 +424,17 @@ input {
   transform: scale(0.95);
 }
 
-/* map colour key — only rendered when 2+ pin types are in use */
+/* map colour key: the visit shades, then any custom pins' colours. It sits
+   above the Add button and stops short of the round buttons on the right. */
 .legend {
   position: fixed;
   z-index: 1040;
   left: 12px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 86px);
   display: flex;
   flex-wrap: wrap;
   gap: 4px 10px;
-  max-width: 60vw;
+  max-width: calc(100vw - 82px);
   background: rgba(255, 255, 255, 0.92);
   border-radius: 12px;
   padding: 7px 11px;
@@ -431,6 +453,20 @@ input {
   height: 9px;
   border-radius: 50%;
   flex: none;
+}
+.legend-urgent {
+  background: var(--visit-urgent);
+}
+.legend-soon {
+  background: var(--visit-soon);
+}
+.legend-later {
+  background: var(--visit-later);
+}
+/* custom pins start on a line of their own, under the visit shades */
+.legend-break {
+  flex-basis: 100%;
+  height: 0;
 }
 
 .signout {

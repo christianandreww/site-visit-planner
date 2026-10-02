@@ -20,13 +20,15 @@ function visit(id, name, address, postal, lat, lng, dayOffset, start, end) {
   };
 }
 
+// Spread over three weeks so the demo shows all three shades of visit pin:
+// this week, the week after, and two weeks out.
 export function sampleVisits() {
   return [
     visit('demo-1', 'Marcus Tan', '12 Woodlands Crescent', '737916', 1.4443, 103.802, 1, '10:00', '11:00'),
     visit('demo-2', 'John Tan', '3 Elias Road', '519931', 1.3736, 103.944, 1, '14:00', '15:00'),
     visit('demo-3', 'Sarah Lim', '88 Bedok North Avenue 4', '489948', 1.33, 103.927, 2, '14:00', '15:00'),
-    visit('demo-4', 'Priya Nair', '7 Jurong West Street 52', '649296', 1.3496, 103.719, 2, '10:00', '11:00'),
-    visit('demo-5', 'David Chua', '15 Binjai Park', '589827', 1.3376, 103.7765, 3, '15:00', '16:00'),
+    visit('demo-4', 'Priya Nair', '7 Jurong West Street 52', '649296', 1.3496, 103.719, 9, '10:00', '11:00'),
+    visit('demo-5', 'David Chua', '15 Binjai Park', '589827', 1.3376, 103.7765, 16, '15:00', '16:00'),
   ];
 }
 

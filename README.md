@@ -181,6 +181,12 @@ fortnight can never look alike. A far-off visit flips to its weekday on its own
 as the date approaches. Visit cards also show **From your pins** — how far the
 visit is from each custom pin, with driving time.
 
+A visit pin's **shade of blue says how soon it is**: dark blue within the next
+7 days (the same days its label names the weekday), the usual blue for the week
+after, and a lighter blue — one shade darker than the sea — from two weeks out.
+A key in the bottom corner says which is which, and where pins overlap the
+sooner visit stays on top.
+
 Other behaviour worth knowing: tapping the map background closes the card; **Edit visit** on a
 card reopens the form pre-filled so you can change anything (clash warnings
 included), and **Remove** deletes an entry; pins disappear on their own once
