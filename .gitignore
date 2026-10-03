@@ -1,0 +1,10 @@
+# installed packages and build output: recreated by `npm install` / `npm run build`
+node_modules/
+dist/
+
+# your own settings and passwords (see .env.example)
+.env
+.env.local
+
+# Vercel's local link to the project
+.vercel/
