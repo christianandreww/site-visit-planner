@@ -33,8 +33,9 @@ can see anyone else's clients or visits.
 
 **Stack:** React + Vite · Leaflet with OneMap (SLA) basemap · OneMap search &
 driving-route APIs · Firebase Firestore (real-time sync between each user's
-PC and phone) · Google sign-in · two serverless functions on Vercel that keep
-the OneMap credentials server-side. Everything runs on free tiers.
+PC and phone) · Google sign-in · three serverless functions on Vercel that keep
+the OneMap credentials and the planner calendar's link server-side. Everything
+runs on free tiers.
 
 ---
 
@@ -48,6 +49,10 @@ the OneMap credentials server-side. Everything runs on free tiers.
   functions know `ONEMAP_EMAIL` / `ONEMAP_PASSWORD`; they fetch the OneMap
   access token, cache it, and refresh it automatically about 6 hours before
   its 3-day expiry. Your password and the token never reach the browser.
+- Calendar invites (optional) go through `/api/invites`, which checks who is
+  asking from their Firebase sign-in, reads the planner calendar's private
+  feed, and returns only that rep's own upcoming events — see
+  [Calendar invites](#calendar-invites-optional).
 - Past visits are hidden from the map once their end time passes, but the
   records stay in Firestore untouched.
 
